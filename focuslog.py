@@ -26,9 +26,20 @@ def db():
 
 
 # ---------- window ----------
+def locked():
+    """Quattro: shell-native lock via IPC. Older Omarchy: hyprlock process."""
+    try:
+        r = subprocess.run(["omarchy-shell", "-q", "lock", "isLocked"], capture_output=True, text=True, timeout=3)
+        if r.stdout.strip() == "true":
+            return True
+    except Exception:
+        pass
+    return subprocess.run(["pgrep", "-x", "hyprlock"], capture_output=True).returncode == 0
+
+
 def active_window():
     """(class, title) or None when idle/locked."""
-    if subprocess.run(["pgrep", "-x", "hyprlock"], capture_output=True).returncode == 0:
+    if locked():
         return None
     try:
         w = json.loads(subprocess.run(["hyprctl", "activewindow", "-j"], capture_output=True,
@@ -97,7 +108,14 @@ def classify(c, conn, cls, title):
 
 # ---------- daemon ----------
 def notify(msg, urgency="normal"):
-    subprocess.run(["notify-send", "-u", urgency, "-a", "focuslog", "focuslog", msg])
+    head, _, body = msg.partition("\n")
+    for cmd in (["omarchy-notification-send", "--app-name", "focuslog", "-g", "󰑴", "-u", urgency, head, body],
+                ["notify-send", "-u", urgency, "-a", "focuslog", head, body]):
+        try:
+            if subprocess.run(cmd, capture_output=True).returncode == 0:
+                return
+        except FileNotFoundError:
+            pass
 
 
 def run(interval=5):
@@ -153,9 +171,9 @@ def waybar():
     icon = {"study": "󰑴", "waste": "󰒲"}.get(last and last[0], "󰔛")
     tip = (f"Study  {fmt(t['study'])} / {fmt(goal)} ({pct}%)\nWaste  {fmt(t['waste'])}\n"
            f"Other  {fmt(t['neutral'])}\nFocus  {focus:.0%}\n\nClick: today's report\n"
-           f"Right-click: mislabeled? flip current window")
+           f"Right-click: mislabeled? flip focused window")
     print(json.dumps({"text": f"{icon} {fmt(t['study'])} · {fmt(t['waste'])}", "tooltip": tip,
-                      "class": "waste" if focus < .5 else "study", "percentage": pct}))
+                      "class": "active" if focus < .5 else "study", "percentage": pct}))
 
 
 def report(days=1):
