@@ -2,7 +2,7 @@
 goal = "Preparing for software engineering / system design interviews (HelloInterview, LeetCode, DSA, system design videos)"
 daily_goal_minutes = 180
 
-# Order: study title keyword -> waste keyword -> LLM (browsers) -> app class -> LLM -> neutral
+# Order: study title keyword -> LLM (browsers) -> waste keyword -> app class -> LLM -> neutral
 browsers = ["chromium", "brave", "firefox", "google-chrome", "zen"]
 
 [study]

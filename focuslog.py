@@ -77,10 +77,10 @@ def classify(c, conn, cls, title):
     is_browser = _has(cls, c.get("browsers", []))
     if _has(title, s.get("title_keywords", [])):
         v = ("study", "rule")
-    elif _has(title, w.get("title_keywords", [])):
-        v = ("waste", "rule")
     elif is_browser and (r := ask_llm(c, cls, title)):
         v = (r, "llm")
+    elif _has(title, w.get("title_keywords", [])):
+        v = ("waste", "rule")
     elif cls.lower() in map(str.lower, s.get("classes", [])):
         v = ("study", "rule")
     elif cls.lower() in map(str.lower, w.get("classes", [])):
