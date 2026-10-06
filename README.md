@@ -1,7 +1,8 @@
 # focuslog
 
-Study-vs-time-waste tracker for [Omarchy](https://omarchy.org) Quattro: background tracker, desktop dashboard app, and native Quickshell bar plugin. Classification by **Jev (TypeSafe AI)**.
+![alt text](docs/image.png)
 
+Study-vs-time-waste tracker for [Omarchy](https://omarchy.org) Quattro: background tracker, desktop dashboard app, and native Quickshell bar plugin. Classification by **Jev (TypeSafe AI)**.
 ## How it works
 
 - **Tracker** (`focuslog run`, systemd user service): samples the focused window every 5 s via `hyprctl activewindow -j`. Locked screen (Quattro shell lock / hyprlock) isn't counted.
