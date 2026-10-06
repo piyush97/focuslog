@@ -1,0 +1,26 @@
+# focuslog config  ->  ~/.config/focuslog/config.toml
+goal = "Preparing for software engineering / system design interviews (HelloInterview, LeetCode, DSA, system design videos)"
+daily_goal_minutes = 180
+
+# Order: study title keyword -> waste keyword -> LLM (browsers) -> app class -> LLM -> neutral
+browsers = ["chromium", "brave", "firefox", "google-chrome", "zen"]
+
+[study]
+title_keywords = ["hellointerview", "hello interview", "leetcode", "neetcode", "system design",
+                  "bytebytego", "excalidraw", "designing data-intensive"]
+classes = ["obsidian", "code", "Code", "nvim"]
+
+[waste]
+title_keywords = ["reddit", "twitter", " / x", "instagram", "netflix", "twitch", "tiktok",
+                  "facebook", "prime video", "9gag", "youtube shorts"]
+classes = ["discord", "steam", "spotify"]
+
+[llm]
+enabled = true
+url = "http://localhost:11434/api/generate"   # Ollama
+model = "llama3.1:8b"
+timeout = 15
+
+[nudge]
+waste_minutes = 5      # notify after 5 min continuous waste
+repeat_minutes = 3     # then every 3 min until you switch back

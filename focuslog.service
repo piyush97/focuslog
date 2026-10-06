@@ -1,0 +1,11 @@
+[Unit]
+Description=focuslog study/waste tracker
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/focuslog run
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target
