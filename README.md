@@ -1,29 +1,33 @@
 # focuslog
 
-Study-vs-time-waste tracker for [Omarchy](https://omarchy.org) Quattro (Hyprland + Quickshell bar). Falls back to Waybar on older Omarchy.
+Study-vs-time-waste tracker for [Omarchy](https://omarchy.org) Quattro: background tracker, desktop dashboard app, and native Quickshell bar plugin. Classification by **Jev (TypeSafe AI)**.
 
-- Every 5 s it checks the active window (`hyprctl activewindow -j`). Locked screen (Quattro shell lock or hyprlock) = not counted.
-- **Classifier:** your keyword lists first (instant), then a local LLM via Ollama for anything ambiguous, e.g. YouTube titles. Each title is classified once and cached.
-- **Nudge:** after 5 min of continuous waste → critical notification, repeated every 3 min until you go back.
-- **Bar:** `󰑴 1h20m · 14m` (study · waste), urgent color when focus < 50 %. Hover = breakdown; click = today's report; right-click = flip the label of the current window (it learns).
+## How it works
+
+- **Tracker** (`focuslog run`, systemd user service): samples the focused window every 5 s via `hyprctl activewindow -j`. Locked screen (Quattro shell lock / hyprlock) isn't counted.
+- **Classifier**: your keyword rules first (instant, free) → [Jev](https://docs.typesafe.ai) `choice` question (`study` / `waste` / `neutral`) with your `goal` as context. Below `min_confidence` → neutral. Each title is classified **once** and cached, so Jev costs stay tiny. Without a key → rules only.
+- **Nudge**: 5 min continuous waste → critical Omarchy notification, repeating every 3 min until you go back.
+- **Bar plugin** (`piyush97.focuslog`): `󰑴 1h20m · 14m` (study · waste), urgent color when focus < 50 %. Left-click → app, right-click → flip label (it learns).
+- **App** (`focuslog app` / launcher "focuslog"): dashboard with today vs. goal, focus %, hourly + 7-day charts, top study/waste titles. Served on `127.0.0.1:47615` only.
 
 ## Install
 
 ```sh
 git clone https://github.com/piyush97/focuslog ~/focuslog && cd ~/focuslog && ./install.sh
 ```
-Installs `ollama-cuda` if missing, pulls the model, starts the `focuslog` user service, adds the widget to the right of the bar (`~/.config/omarchy/shell.json`, live reload), and binds `SUPER+CTRL+G` → `focuslog mark` in `~/.config/hypr/bindings.lua`. Safe to re-run.
 
-Remove widget: `jq '.bar.layout.right |= map(select(.id != "focuslog"))' ~/.config/omarchy/shell.json > /tmp/s && mv /tmp/s ~/.config/omarchy/shell.json && omarchy-shell shell reloadConfig`
+Prompts for your TypeSafe API key (or reads `$TYPESAFE_API_KEY`) → `~/.config/focuslog/env` (mode 600, never in git). Then installs the service, launcher entry, bar plugin (`~/.config/omarchy/plugins/piyush97.focuslog`, enabled at the right of the bar), and `SUPER+CTRL+G` → flip label. Safe to re-run; also removes the old inline bar module.
 
 ## Use
 
 ```sh
-focuslog report        # today + top study/waste titles
-focuslog report 7      # last 7 days
-focuslog mark          # flip focused window study<->waste (SUPER+CTRL+G)
-focuslog mark neutral  # or set explicitly
+focuslog app           # dashboard window
+focuslog report [7]    # terminal report
+focuslog mark [study|waste|neutral]   # relabel focused window (no arg = flip)
+focuslog classify chromium "Designing Twitter - YouTube"   # test the classifier
 journalctl --user -u focuslog -f
 ```
 
-Config: `~/.config/focuslog/config.toml` (goal, keywords, model, nudge timings). Data: `~/.local/share/focuslog/focuslog.db`.
+Config: `~/.config/focuslog/config.toml` (goal, keywords, Jev model/threshold, nudge timing). Data: `~/.local/share/focuslog/focuslog.db`.
+
+Disable bar widget: `omarchy plugin disable piyush97.focuslog`.

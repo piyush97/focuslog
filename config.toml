@@ -2,7 +2,7 @@
 goal = "Preparing for software engineering / system design interviews (HelloInterview, LeetCode, DSA, system design videos)"
 daily_goal_minutes = 180
 
-# Order: study title keyword -> LLM (browsers) -> waste keyword -> app class -> LLM -> neutral
+# Order: study title keyword -> Jev (browsers) -> waste keyword -> app class -> Jev -> neutral
 browsers = ["chromium", "brave", "firefox", "google-chrome", "zen"]
 
 [study]
@@ -15,11 +15,13 @@ title_keywords = ["reddit", "twitter", " / x", "instagram", "netflix", "twitch",
                   "facebook", "prime video", "9gag", "youtube shorts"]
 classes = ["discord", "steam", "spotify"]
 
-[llm]
+[jev]
+# TypeSafe AI Jev classifier. Key: TYPESAFE_API_KEY in ~/.config/focuslog/env
 enabled = true
-url = "http://localhost:11434/api/generate"   # Ollama
-model = "llama3.1:8b"
-timeout = 15
+url = "https://api.typesafe.ai/v1/systemone"
+model = "jev-latest"
+min_confidence = 0.5   # below this -> neutral
+timeout = 10
 
 [nudge]
 waste_minutes = 5      # notify after 5 min continuous waste

@@ -11,6 +11,7 @@ CATS = ("study", "waste", "neutral")
 
 
 def cfg():
+    load_env()
     p = CFG_PATH if CFG_PATH.exists() else HERE / "config.toml"
     return tomllib.loads(p.read_text())
 
@@ -57,25 +58,42 @@ def _has(text, words):
     return any(w.lower() in t for w in words)
 
 
+def load_env():
+    """TYPESAFE_API_KEY etc. from ~/.config/focuslog/env (systemd + bar don't see shell rc)."""
+    p = CFG_PATH.parent / "env"
+    if p.exists():
+        for line in p.read_text().splitlines():
+            k, sep, v = line.strip().partition("=")
+            if sep and not k.startswith("#"):
+                os.environ.setdefault(k.strip().removeprefix("export "), v.strip().strip("'\""))
+
+
 def ask_llm(c, cls, title):
-    l = c.get("llm", {})
-    if not l.get("enabled"):
+    """Jev (TypeSafe AI) Choice question -> study|waste|neutral, or None."""
+    j = c.get("jev", {})
+    key = os.environ.get("TYPESAFE_API_KEY")
+    if not j.get("enabled", True) or not key:
         return None
-    prompt = (f"The user's goal: {c['goal']}\n"
-              f"Active window app: {cls}\nWindow title: {title}\n"
-              "Is the user STUDYING toward that goal, WASTING time (entertainment, social media, "
-              "unrelated videos/news/shopping), or NEUTRAL (system/utility/unclear)? "
-              "Answer with exactly one word: study, waste, or neutral.")
-    body = json.dumps({"model": l["model"], "prompt": prompt, "stream": False,
-                       "options": {"temperature": 0}}).encode()
+    body = json.dumps({
+        "model": j.get("model", "jev-latest"),
+        "state": {"goal": c["goal"], "app": cls, "window_title": title},
+        "questions": {"activity": {
+            "type": "choice",
+            "instructions": "Given `goal`, is the user studying, wasting time, or doing something neutral in this window?",
+            "criteria": {
+                "study": "directly advances `goal`: learning material, practice problems, notes, coding, technical videos",
+                "waste": "entertainment, social media, gaming, unrelated videos, news, shopping",
+                "neutral": "system tools, settings, file managers, or genuinely unclear"}}}}).encode()
+    req = urllib.request.Request(j.get("url", "https://api.typesafe.ai/v1/systemone"), body,
+                                 {"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
     try:
-        req = urllib.request.Request(l["url"], body, {"Content-Type": "application/json"})
-        ans = json.loads(urllib.request.urlopen(req, timeout=l.get("timeout", 15)).read())["response"]
+        a = json.loads(urllib.request.urlopen(req, timeout=j.get("timeout", 10)).read())["answers"]["activity"]
     except Exception as e:
-        print(f"llm error: {e}", file=sys.stderr)
+        print(f"jev error: {e}", file=sys.stderr)
         return None
-    ans = ans.strip().lower()
-    return next((k for k in CATS if k in ans), None)
+    if a.get("confidence", 1) < j.get("min_confidence", 0.5):
+        return "neutral"
+    return a["choice"] if a.get("choice") in CATS else None
 
 
 def classify(c, conn, cls, title):
@@ -89,18 +107,18 @@ def classify(c, conn, cls, title):
     if _has(title, s.get("title_keywords", [])):
         v = ("study", "rule")
     elif is_browser and (r := ask_llm(c, cls, title)):
-        v = (r, "llm")
+        v = (r, "jev")
     elif _has(title, w.get("title_keywords", [])):
         v = ("waste", "rule")
     elif cls.lower() in map(str.lower, s.get("classes", [])):
         v = ("study", "rule")
     elif cls.lower() in map(str.lower, w.get("classes", [])):
         v = ("waste", "rule")
-    elif (r := ask_llm(c, cls, title)) and not is_browser:
-        v = (r, "llm")
+    elif not is_browser and (r := ask_llm(c, cls, title)):
+        v = (r, "jev")
     else:
         v = ("neutral", "default")
-    if v[1] != "default":  # cache rules + llm so the LLM runs once per title
+    if v[1] != "default":  # cache so Jev is called once per title
         conn.execute("INSERT OR REPLACE INTO verdicts VALUES(?,?,?)", (key, *v))
         conn.commit()
     return v
@@ -170,7 +188,7 @@ def waybar():
     last = conn.execute("SELECT cat FROM samples ORDER BY ts DESC LIMIT 1").fetchone()
     icon = {"study": "󰑴", "waste": "󰒲"}.get(last and last[0], "󰔛")
     tip = (f"Study  {fmt(t['study'])} / {fmt(goal)} ({pct}%)\nWaste  {fmt(t['waste'])}\n"
-           f"Other  {fmt(t['neutral'])}\nFocus  {focus:.0%}\n\nClick: today's report\n"
+           f"Other  {fmt(t['neutral'])}\nFocus  {focus:.0%}\n\nClick: open focuslog app\n"
            f"Right-click: mislabeled? flip focused window")
     print(json.dumps({"text": f"{icon} {fmt(t['study'])} · {fmt(t['waste'])}", "tooltip": tip,
                       "class": "active" if focus < .5 else "study", "percentage": pct}))
@@ -210,6 +228,66 @@ def mark(cat=None):
     notify(f"Marked as {cat}: {w[1][:60]}")
 
 
+# ---------- desktop app (local dashboard) ----------
+PORT = int(os.environ.get("FOCUSLOG_PORT", 47615))
+
+
+def stats(days=7):
+    c, conn = cfg(), db()
+    today = date.today().isoformat()
+    week = []
+    for i in range(days - 1, -1, -1):
+        d = (date.today() - timedelta(days=i)).isoformat()
+        week.append({"day": d, **totals(conn, d)})
+    top = {cat: [{"title": t or k, "secs": s} for t, k, s in conn.execute(
+        "SELECT title, cls, SUM(secs) s FROM samples WHERE day=? AND cat=? GROUP BY cls, title "
+        "ORDER BY s DESC LIMIT 10", (today, cat))] for cat in ("study", "waste")}
+    hours = [dict.fromkeys(CATS, 0.0) for _ in range(24)]
+    for ts, cat, s in conn.execute("SELECT ts, cat, secs FROM samples WHERE day=?", (today,)):
+        hours[datetime.fromtimestamp(ts).hour][cat] += s
+    last = conn.execute("SELECT cat, title FROM samples ORDER BY ts DESC LIMIT 1").fetchone()
+    return {"today": week[-1], "week": week, "top": top, "hours": hours, "goal": c.get("daily_goal_minutes", 120) * 60,
+            "now": {"cat": last[0], "title": last[1]} if last else None,
+            "jev": bool(os.environ.get("TYPESAFE_API_KEY")) and c.get("jev", {}).get("enabled", True)}
+
+
+def serve():
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path.startswith("/api/stats"):
+                body, ctype = json.dumps(stats()).encode(), "application/json"
+            elif self.path in ("/", "/index.html"):
+                body, ctype = (HERE / "app.html").read_bytes(), "text/html; charset=utf-8"
+            else:
+                return self.send_error(404)
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+
+
+def app():
+    """Open the dashboard as a desktop app window (Omarchy web-app style)."""
+    import socket
+    if socket.socket().connect_ex(("127.0.0.1", PORT)):
+        subprocess.Popen([sys.executable, __file__, "serve"], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.6)
+    url = f"http://127.0.0.1:{PORT}/"
+    for cmd in (["omarchy-launch-webapp", url], ["chromium", f"--app={url}"], ["xdg-open", url]):
+        try:
+            return subprocess.Popen(cmd, start_new_session=True)
+        except FileNotFoundError:
+            pass
+
+
 if __name__ == "__main__":
     a = sys.argv[1:] or ["help"]
     if a[0] == "run":
@@ -220,7 +298,13 @@ if __name__ == "__main__":
         report(int(a[1]) if len(a) > 1 else 1)
     elif a[0] == "mark":
         mark(a[1] if len(a) > 1 and a[1] in CATS else None)
+    elif a[0] == "serve":
+        serve()
+    elif a[0] == "app":
+        app()
+    elif a[0] == "stats":
+        print(json.dumps(stats(), indent=1))
     elif a[0] == "classify":
         print(classify(cfg(), db(), a[1], a[2] if len(a) > 2 else ""))
     else:
-        print("usage: focuslog run | waybar | report [days] | mark [study|waste|neutral] | classify CLASS TITLE")
+        print("usage: focuslog run | app | waybar | report [days] | stats | mark [study|waste|neutral] | classify CLASS TITLE")

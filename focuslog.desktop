@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=focuslog
+Comment=Study vs. time-waste dashboard
+Exec=@BIN@ app
+Icon=appointment-soon
+Terminal=false
+Categories=Utility;Education;
