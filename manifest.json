@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "id": "piyush97.focuslog",
   "name": "focuslog",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "piyush97",
-  "description": "Study vs. time-waste tracker (Jev classifier)",
+  "description": "Track study, downtime, and daily focus with Jev-powered classification.",
   "kinds": ["bar-widget"],
-  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "entryPoints": { "barWidget": "Widget.qml" },
   "barWidget": {
     "displayName": "focuslog",
     "description": "Study time · wasted time today",
     "category": "Info",
     "allowMultiple": false,
     "defaultSection": "right",
-    "defaults": { "command": "focuslog", "interval": 10 },
+    "defaults": { "interval": 10 },
     "schema": [
       { "key": "command", "type": "string", "label": "focuslog command" },
       { "key": "interval", "type": "number", "label": "Refresh seconds" }

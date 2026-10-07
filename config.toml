@@ -3,7 +3,7 @@ goal = "Preparing for software engineering / system design interviews (HelloInte
 daily_goal_minutes = 180
 
 # Order: study title keyword -> Jev (browsers) -> waste keyword -> app class -> Jev -> neutral
-browsers = ["chromium", "brave", "firefox", "google-chrome", "zen"]
+browsers = ["chromium", "brave", "firefox", "google-chrome", "zen", "helium"]
 
 [study]
 title_keywords = ["hellointerview", "hello interview", "leetcode", "neetcode", "system design",
@@ -22,6 +22,7 @@ url = "https://api.typesafe.ai/v1/systemone"
 model = "jev-latest"
 min_confidence = 0.5   # below this -> neutral
 timeout = 10
+retry_seconds = 300
 
 [nudge]
 waste_minutes = 5      # notify after 5 min continuous waste

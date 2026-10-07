@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
@@ -9,15 +10,15 @@ BarWidget {
   id: root
   moduleName: "piyush97.focuslog"
 
-  readonly property string cmd: String(setting("command", "focuslog"))
-  property string label: ""
+  readonly property string cmd: String(setting("command", Quickshell.env("HOME") + "/.local/bin/focuslog"))
+  property string label: "focuslog: starting"
   property string tip: ""
   property bool wasting: false
 
   function refresh() { if (!proc.running) proc.running = true }
   function update(raw) {
     var d = Util.parseModuleJson(raw)
-    root.label = d.text || ""
+    root.label = d.text || "focuslog: setup needed"
     root.tip = d.tooltip || ""
     root.wasting = d["class"] === "active"
   }
@@ -28,7 +29,7 @@ BarWidget {
 
   Process {
     id: proc
-    command: ["bash", "-lc", root.cmd + " waybar"]
+    command: [root.cmd, "waybar"]
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.update(text) }
   }
 
@@ -47,7 +48,7 @@ BarWidget {
     active: root.wasting
     onPressed: function(button) {
       if (!root.bar) return
-      root.bar.run(root.cmd + (button === Qt.RightButton ? " mark" : " app"))
+      root.bar.run(Util.shellQuote(root.cmd) + (button === Qt.RightButton ? " mark" : " app"))
       if (button === Qt.RightButton) refreshLater.restart()
     }
   }
