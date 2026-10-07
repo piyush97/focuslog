@@ -127,7 +127,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately as desc
 ## License
 
 [MIT](LICENSE) © 2026 Piyush Mehta.
-
-## Release history
-
-The public 1.1.0 history preserves the five original source/documentation commits plus a sanitized release commit. It intentionally excludes the early accidental screenshot and Python bytecode. Re-clone rather than pulling pre-release history. `SUPPORT_REQUEST.md` documents the outstanding GitHub CDN cache-purge request for the former screenshot URL; the repository remains private until that purge is confirmed.
